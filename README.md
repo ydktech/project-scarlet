@@ -1,47 +1,47 @@
 # Project Scarlet
 
-개인 AI 비서 제작 프로젝트. Cerebras 추론 엔진 위에 Qwen3-235B 모델을 올려서 돌리는 에이전트 시스템.
+Personal AI assistant built on Cerebras inference engine running Qwen3-235B with an agentic tool-calling system.
 
-## 구조
+## Structure
 
 ```
 scarlett/
-  config.py      # 설정 상수
-  llm.py         # Cerebras LLM 클라이언트 (스트리밍)
-  agent.py       # 에이전트 루프 (도구 감지 → 실행 → 최종 응답)
-  tools.py       # 도구 스키마 + 실행 (web_search, fetch_url, calculate, get_current_time)
-  memory.py      # L3 메타데이터 (세션, 관계 단계)
-  semantic.py    # mem0 시맨틱 메모리 (벡터 검색)
-  prompt.py      # 시스템 프롬프트 로딩 + 모드/표정 감지
-modules/         # 시스템 프롬프트 모듈 (.md)
-server.py        # FastAPI 백엔드 (SSE 스트리밍, TTS)
-static/          # 프론트엔드 (단일 HTML)
-build.py         # 프롬프트 빌더 (modules/ → setting.txt)
+  config.py      # Constants and paths
+  llm.py         # Cerebras LLM client (streaming)
+  agent.py       # Agent loop (tool detection → execution → final response)
+  tools.py       # Tool schemas + executors (web_search, fetch_url, calculate, get_current_time)
+  memory.py      # L3 metadata store (sessions, relationship phase)
+  semantic.py    # mem0 semantic memory (vector search)
+  prompt.py      # System prompt loader + mode/expression detection
+modules/         # System prompt modules (.md)
+server.py        # FastAPI backend (SSE streaming, TTS)
+static/          # Frontend (single HTML)
+build.py         # Prompt builder (modules/ → setting.txt)
 ```
 
-## 주요 기능
+## Features
 
-- **에이전트 도구 호출** — 웹 검색 (Tavily), URL 읽기, 계산기, 시간 조회
-- **3계층 메모리** — 세션 히스토리 / JSON 메타데이터 / 벡터 DB 시맨틱 메모리
-- **실시간 SSE 스트리밍** — 토큰 단위 타자기 효과
-- **TTS** — Fish Audio API로 음성 합성, 문장 단위 프리페치 재생
-- **이중 인격 모드** — angel / psycho, 키워드 기반 자동 전환 + UI 반영
+- **Agentic tool calling** — Web search (Tavily), URL fetching, calculator, current time
+- **3-tier memory** — Session history / JSON metadata / Vector DB semantic memory
+- **Real-time SSE streaming** — Token-by-token typewriter effect
+- **TTS** — Fish Audio API speech synthesis with sentence-level prefetch playback
+- **Dual personality mode** — Angel / Psycho, keyword-triggered auto-switching with UI reflection
 
-## 실행
+## Getting Started
 
 ```bash
 cp .env.example .env
-# .env에 API 키 입력
+# Fill in your API keys in .env
 
 uv sync
-uv run python build.py   # 시스템 프롬프트 빌드
+uv run python build.py   # Build system prompt
 uv run server.py          # localhost:8000
 ```
 
-## 필요한 API 키
+## Required API Keys
 
-| 키 | 용도 | 발급처 |
-|----|------|--------|
-| `CEREBRAS_API_KEY` | LLM 추론 | [cerebras.ai](https://cerebras.ai) |
-| `FISH_API_KEY` | TTS 음성 합성 | [fish.audio](https://fish.audio) |
-| `TAVILY_API_KEY` | 웹 검색 도구 | [tavily.com](https://tavily.com) |
+| Key | Purpose | Provider |
+|-----|---------|----------|
+| `CEREBRAS_API_KEY` | LLM inference | [cerebras.ai](https://cerebras.ai) |
+| `FISH_API_KEY` | TTS speech synthesis | [fish.audio](https://fish.audio) |
+| `TAVILY_API_KEY` | Web search tool | [tavily.com](https://tavily.com) |
