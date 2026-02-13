@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scarlett Maid-Bot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a0a0f;
+  --bg-panel: #0d0d14;
+  --bg-input: #12121a;
+  --border: #1a1a2e;
+  --text: #c8c8d4;
+  --text-dim: #666680;
+  --cyan: #00f0ff;
+  --red: #ff2d55;
+  --magenta: #ff00aa;
+  --accent: var(--cyan);
+  --glow: var(--cyan);
+  --font: 'JetBrains Mono', monospace;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.6;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* CRT */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── App Layout ──────────────────────────────── */
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* ── Header ──────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  text-shadow: 0 0 10px var(--glow);
+}
+
+.status-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.chip {
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.chip.mode-angel { border-color: var(--cyan); color: var(--cyan); text-shadow: 0 0 6px var(--cyan); }
+.chip.mode-psycho { border-color: var(--red); color: var(--red); text-shadow: 0 0 6px var(--red); animation: flicker .15s infinite alternate; }
+
+@keyframes flicker { from { opacity: .85 } to { opacity: 1 } }
+
+/* ── Main: Chat + Memory sidebar ─────────────── */
+.main {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  overflow: hidden;
+}
+
+/* ── Chat Panel ──────────────────────────────── */
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Character face (inside chat, before messages) ── */
+.char-greeting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  flex-shrink: 0;
+}
+
+.char-face {
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--glow) 30%, transparent);
+  object-fit: contain;
+  transition: all .4s ease;
+  background: transparent;
+}
+
+.char-face.psycho {
+  border-color: var(--red);
+  box-shadow: 0 0 30px rgba(255,45,85,.4);
+  animation: glitch 3s infinite;
+}
+
+@keyframes glitch {
+  0%,95%,100% { transform: translate(0); filter: none; }
+  96% { transform: translate(-2px,1px); filter: hue-rotate(20deg); }
+  97% { transform: translate(2px,-1px); filter: hue-rotate(-20deg); }
+  98% { transform: translate(-1px,-1px); filter: brightness(1.2); }
+}
+
+.char-name {
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  text-shadow: 0 0 8px var(--glow);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.char-expr {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* ── Messages ────────────────────────────────── */
+.msg {
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.7;
+  word-wrap: break-word;
+}
+
+.msg a { color: var(--cyan); text-decoration: underline; }
+.msg code { background: rgba(255,255,255,.08); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+.msg pre { background: #0a0a12; padding: 10px; border-radius: 4px; overflow-x: auto; margin: 6px 0; border: 1px solid var(--border); }
+.msg pre code { background: none; padding: 0; }
+
+.msg-user { align-self: flex-end; background: #1a1a30; border: 1px solid var(--border); }
+.msg-assistant { align-self: flex-start; background: var(--bg-panel); border: 1px solid var(--border); }
+.msg-assistant.angel { border-left: 3px solid var(--cyan); }
+.msg-assistant.psycho { border-left: 3px solid var(--red); background: #140a10; }
+
+.msg-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.msg-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+.msg-user .msg-label { color: var(--text-dim); }
+.msg-assistant.angel .msg-label { color: var(--cyan); }
+.msg-assistant.psycho .msg-label { color: var(--red); }
+
+.tts-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all .2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 50%;
+}
+.tts-btn svg { width: 14px; height: 14px; fill: currentColor; }
+.tts-btn:hover { color: var(--accent); background: rgba(255,255,255,.06); }
+.tts-btn.playing { color: var(--accent); }
+.tts-btn.loading { color: var(--text-dim); animation: spin .8s linear infinite; }
+.tts-btn:disabled { opacity: .3; cursor: not-allowed; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.msg-content p { margin: 4px 0; }
+.msg-content ul, .msg-content ol { margin: 4px 0 4px 20px; }
+
+.streaming-cursor::after { content: '\u2588'; animation: blink .6s infinite; color: var(--accent); }
+@keyframes blink { 0%,50% { opacity: 1 } 51%,100% { opacity: 0 } }
+
+/* ── Tool Status ────────────────────────────── */
+.tool-status {
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.tool-status-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 4px 10px;
+  background: rgba(0, 240, 255, 0.04);
+  border: 1px solid rgba(0, 240, 255, 0.12);
+  border-radius: 4px;
+  font-family: var(--font);
+}
+
+body.psycho .tool-status-item {
+  background: rgba(255, 45, 85, 0.04);
+  border-color: rgba(255, 45, 85, 0.12);
+}
+
+.tool-status-item .tool-icon {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.tool-status-item .tool-name {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.tool-status-item.running .tool-icon::after {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border: 1.5px solid var(--accent);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  margin-left: 2px;
+  vertical-align: middle;
+}
+
+.tool-status-item.done {
+  opacity: 0.6;
+}
+
+.tool-status-item.done .tool-icon { color: #4caf50; }
+
+/* ── Input ───────────────────────────────────── */
+.chat-input-area {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.chat-input-wrap { display: flex; gap: 8px; }
+
+.chat-input {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 14px;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  outline: none;
+  transition: border-color .2s;
+}
+
+.chat-input:focus { border-color: var(--accent); }
+.chat-input::placeholder { color: var(--text-dim); }
+
+.send-btn {
+  padding: 10px 18px;
+  background: var(--bg-input);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: var(--accent);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .2s;
+}
+
+.send-btn:hover { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+.send-btn:disabled { opacity: .3; cursor: not-allowed; }
+
+/* ── Memory Sidebar ──────────────────────────── */
+.memory-panel {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: var(--bg-panel);
+  overflow: hidden;
+}
+
+.memory-header {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.memory-header h3 { font-size: 11px; font-weight: 500; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+.memory-actions { display: flex; gap: 6px; }
+
+.mem-btn {
+  padding: 3px 8px;
+  font-size: 10px;
+  font-family: var(--font);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all .2s;
+}
+
+.mem-btn:hover { border-color: var(--accent); color: var(--accent); }
+.mem-btn.danger:hover { border-color: var(--red); color: var(--red); }
+
+.memory-content { flex: 1; overflow-y: auto; padding: 10px 14px; }
+.memory-content::-webkit-scrollbar { width: 3px; }
+.memory-content::-webkit-scrollbar-thumb { background: var(--border); }
+
+.mem-section { margin-bottom: 14px; }
+.mem-section-title { font-size: 10px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.mem-item { font-size: 11px; color: var(--text-dim); padding: 3px 0; border-bottom: 1px dotted rgba(255,255,255,.05); }
+.mem-item .key { color: var(--magenta); font-weight: 500; }
+.mem-item .val { color: var(--text); }
+.mem-semantic-item { font-size: 11px; color: var(--text-dim); padding: 5px 8px; margin-bottom: 4px; background: var(--bg); border-radius: 3px; border-left: 2px solid var(--magenta); line-height: 1.5; }
+
+/* ── Psycho Override ─────────────────────────── */
+body.psycho { --accent: var(--red); --glow: var(--red); }
+body.psycho .header { border-bottom-color: rgba(255,45,85,.3); }
+body.psycho .chat-input:focus { border-color: var(--red); }
+body.psycho .send-btn { border-color: var(--red); color: var(--red); }
+body.psycho .mem-section-title { color: var(--red); }
+
+/* ── Mobile ──────────────────────────────────── */
+@media (max-width: 768px) {
+  .main { grid-template-columns: 1fr; }
+  .memory-panel { display: none; }
+  .header { padding: 6px 8px; }
+  .header-right { display: none; }
+  .char-face { width: 140px; height: 140px; }
+  .char-greeting { padding: 24px 0; }
+  .msg { max-width: 92%; font-size: 12px; }
+  .chat-messages { padding: 12px; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="header">
+    <div class="header-left">
+      <span class="logo">SCARLETT</span>
+      <div class="status-chips">
+        <span class="chip" id="chip-mode">ANGEL</span>
+        <span class="chip" id="chip-phase">Phase 1</span>
+        <span class="chip" id="chip-sessions">0 sessions</span>
+      </div>
+    </div>
+    <div class="header-right" style="display:flex;gap:6px;align-items:center;">
+      <span class="chip" id="chip-expression">smile</span>
+      <span class="chip" id="chip-model" style="font-size:9px;"></span>
+    </div>
+  </header>
+
+  <div class="main">
+    <section class="chat-panel">
+      <div class="chat-messages" id="chat-messages">
+        <!-- Character face centered in chat area -->
+        <div class="char-greeting" id="char-greeting">
+          <img class="char-face" id="char-face"
+               src="/static/expressions/smile.png"
+               alt="Scarlett">
+          <div class="char-name">Scarlett</div>
+          <div class="char-expr" id="expr-label">smile</div>
+        </div>
+      </div>
+      <div class="chat-input-area">
+        <div class="chat-input-wrap">
+          <input type="text" class="chat-input" id="chat-input"
+                 placeholder="Type a message..." autocomplete="off">
+          <button class="send-btn" id="send-btn">SEND</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="memory-panel">
+      <div class="memory-header">
+        <h3>Memory</h3>
+        <div class="memory-actions">
+          <button class="mem-btn" id="btn-save">Save</button>
+          <button class="mem-btn danger" id="btn-reset">Reset</button>
+        </div>
+      </div>
+      <div class="memory-content" id="memory-content">
+        <div class="mem-section">
+          <div class="mem-section-title">L3 Metadata</div>
+          <div id="mem-metadata"></div>
+        </div>
+        <div class="mem-section">
+          <div class="mem-section-title">Semantic Memories</div>
+          <div id="mem-semantic"></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+let currentMode = 'angel';
+let isStreaming = false;
+let hasMessages = false;
+
+const chatMessages = document.getElementById('chat-messages');
+const chatInput = document.getElementById('chat-input');
+const sendBtn = document.getElementById('send-btn');
+const charFace = document.getElementById('char-face');
+const charGreeting = document.getElementById('char-greeting');
+
+function scrollToBottom() {
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  document.body.classList.toggle('psycho', mode === 'psycho');
+  const chipMode = document.getElementById('chip-mode');
+  chipMode.textContent = mode === 'psycho' ? 'PSYCHO' : 'ANGEL';
+  chipMode.className = 'chip ' + (mode === 'psycho' ? 'mode-psycho' : 'mode-angel');
+  charFace.classList.toggle('psycho', mode === 'psycho');
+}
+
+function setExpression(expression) {
+  charFace.src = `/static/expressions/${expression}.png`;
+  document.getElementById('expr-label').textContent = expression;
+  document.getElementById('chip-expression').textContent = expression;
+}
+
+function shrinkGreeting() {
+  if (!hasMessages) {
+    hasMessages = true;
+    charGreeting.style.padding = '16px 0';
+    charFace.style.width = '80px';
+    charFace.style.height = '80px';
+    document.querySelector('.char-name').style.display = 'none';
+  }
+}
+
+// ── TTS (sentence-split MP3 streaming + auto-play) ──
+let currentAudio = null;
+let _ttsAbort = null;
+
+const SVG_PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+const SVG_STOP = '<svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>';
+const SVG_LOADING = '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 1 10 10h-3a7 7 0 0 0-7-7V2z"/></svg>';
+
+function splitBySentence(text) {
+  const chunks = [];
+  let current = '';
+  for (let i = 0; i < text.length; i++) {
+    current += text[i];
+    if ('。！？!?\n'.includes(text[i])) {
+      const trimmed = current.trim();
+      if (trimmed) chunks.push(trimmed);
+      current = '';
+    }
+  }
+  const rest = current.trim();
+  if (rest) chunks.push(rest);
+  return chunks.length > 0 ? chunks : [text];
+}
+
+function stopTTS() {
+  if (_ttsAbort) { _ttsAbort.abort(); _ttsAbort = null; }
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  document.querySelectorAll('.tts-btn.playing, .tts-btn.loading').forEach(b => {
+    b.disabled = false;
+    b.classList.remove('playing', 'loading');
+    b.innerHTML = SVG_PLAY;
+    b.title = 'Play';
+    b.onclick = () => playTTS(b._ttsText, b);
+  });
+}
+
+function resetTTSBtn(btn, text) {
+  btn.disabled = false;
+  btn.classList.remove('playing', 'loading');
+  btn.innerHTML = SVG_PLAY;
+  btn.title = 'Play';
+  btn.onclick = () => playTTS(text, btn);
+}
+
+async function playTTS(text, btn) {
+  stopTTS();
+
+  const ac = new AbortController();
+  _ttsAbort = ac;
+
+  btn.disabled = true;
+  btn.classList.add('loading');
+  btn.innerHTML = SVG_LOADING;
+  btn.title = 'Loading...';
+
+  try {
+    const chunks = splitBySentence(text);
+
+    // Prefetch first sentence
+    let nextResp = fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: chunks[0] }),
+      signal: ac.signal,
+    });
+
+    for (let i = 0; i < chunks.length; i++) {
+      if (ac.signal.aborted) break;
+
+      const resp = await nextResp;
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || `TTS failed (${resp.status})`);
+      }
+
+      // Prefetch next sentence while current one downloads/plays
+      if (i + 1 < chunks.length) {
+        nextResp = fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: chunks[i + 1] }),
+          signal: ac.signal,
+        });
+      }
+
+      const blob = await resp.blob();
+      if (ac.signal.aborted) break;
+
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      currentAudio = audio;
+
+      if (i === 0) {
+        btn.disabled = false;
+        btn.classList.remove('loading');
+        btn.classList.add('playing');
+        btn.innerHTML = SVG_STOP;
+        btn.title = 'Stop';
+        btn.onclick = () => stopTTS();
+      }
+
+      await new Promise((resolve) => {
+        audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+        audio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+        ac.signal.addEventListener('abort', () => { audio.pause(); URL.revokeObjectURL(url); resolve(); }, { once: true });
+        audio.play().catch(() => { URL.revokeObjectURL(url); resolve(); });
+      });
+    }
+
+    if (!ac.signal.aborted) {
+      currentAudio = null;
+      resetTTSBtn(btn, text);
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') console.error('TTS error:', e);
+    if (!ac.signal.aborted) resetTTSBtn(btn, text);
+  }
+}
+
+function makeTTSButton(text) {
+  const btn = document.createElement('button');
+  btn.className = 'tts-btn';
+  btn.innerHTML = SVG_PLAY;
+  btn.title = 'Play';
+  btn._ttsText = text;
+  btn.onclick = () => playTTS(text, btn);
+  return btn;
+}
+
+// ── Messages ─────────────────────────────────────
+function addMessage(role, content, mode) {
+  shrinkGreeting();
+  const div = document.createElement('div');
+  const modeClass = role === 'assistant' ? (mode || currentMode) : '';
+  div.className = `msg msg-${role}` + (modeClass ? ` ${modeClass}` : '');
+
+  const header = document.createElement('div');
+  header.className = 'msg-header';
+
+  const label = document.createElement('div');
+  label.className = 'msg-label';
+  label.textContent = role === 'user' ? 'Master' : 'Scarlett';
+  header.appendChild(label);
+
+  if (role === 'assistant') {
+    header.appendChild(makeTTSButton(content));
+  }
+
+  const body = document.createElement('div');
+  body.className = 'msg-content';
+  if (role === 'assistant') {
+    body.innerHTML = marked.parse(content);
+  } else {
+    body.textContent = content;
+  }
+
+  div.appendChild(header);
+  div.appendChild(body);
+  chatMessages.appendChild(div);
+  scrollToBottom();
+  return body;
+}
+
+function createStreamingMessage() {
+  shrinkGreeting();
+  const div = document.createElement('div');
+  div.className = `msg msg-assistant ${currentMode}`;
+  div.id = 'streaming-msg';
+
+  const header = document.createElement('div');
+  header.className = 'msg-header';
+
+  const label = document.createElement('div');
+  label.className = 'msg-label';
+  label.textContent = 'Scarlett';
+  header.appendChild(label);
+
+  const body = document.createElement('div');
+  body.className = 'msg-content streaming-cursor';
+  body.id = 'streaming-body';
+
+  div.appendChild(header);
+  div.appendChild(body);
+  chatMessages.appendChild(div);
+  scrollToBottom();
+  return body;
+}
+
+// ── Tool UI helpers ──────────────────────────────────
+const TOOL_LABELS = {
+  web_search: 'Web Search',
+  fetch_url: 'Fetch URL',
+  get_current_time: 'Current Time',
+  calculate: 'Calculate',
+};
+
+function getToolStatusContainer() {
+  let container = document.getElementById('tool-status-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'tool-status';
+    container.id = 'tool-status-container';
+    chatMessages.appendChild(container);
+    scrollToBottom();
+  }
+  return container;
+}
+
+function addToolStart(tool, callId) {
+  const container = getToolStatusContainer();
+  const item = document.createElement('div');
+  item.className = 'tool-status-item running';
+  item.id = `tool-${callId}`;
+  const label = TOOL_LABELS[tool] || tool;
+  item.innerHTML = `<span class="tool-icon"></span><span class="tool-name">${label}</span><span class="tool-detail">running...</span>`;
+  container.appendChild(item);
+  scrollToBottom();
+}
+
+function addToolDone(tool, callId, summary) {
+  const item = document.getElementById(`tool-${callId}`);
+  if (item) {
+    item.classList.remove('running');
+    item.classList.add('done');
+    const short = summary && summary.length > 60 ? summary.slice(0, 60) + '...' : (summary || 'done');
+    item.innerHTML = `<span class="tool-icon">&#10003;</span><span class="tool-name">${TOOL_LABELS[tool] || tool}</span><span class="tool-detail">${short}</span>`;
+  }
+}
+
+function clearToolStatus() {
+  const container = document.getElementById('tool-status-container');
+  if (container) container.remove();
+}
+
+async function sendMessage() {
+  const text = chatInput.value.trim();
+  if (!text || isStreaming) return;
+
+  chatInput.value = '';
+  isStreaming = true;
+  sendBtn.disabled = true;
+
+  addMessage('user', text);
+
+  let streamBody = null;
+  let rawText = '';
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text }),
+    });
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let currentEvent = 'message';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          currentEvent = line.slice(7).trim();
+          continue;
+        }
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+
+            if (currentEvent === 'tool_start') {
+              addToolStart(data.tool, data.call_id);
+            }
+
+            else if (currentEvent === 'tool_done') {
+              addToolDone(data.tool, data.call_id, data.summary);
+            }
+
+            else if (currentEvent === 'token') {
+              if (!streamBody) {
+                streamBody = createStreamingMessage();
+              }
+              rawText += data.token;
+              streamBody.innerHTML = marked.parse(rawText);
+              scrollToBottom();
+            }
+
+            else if (currentEvent === 'done') {
+              setMode(data.mode);
+              setExpression(data.expression);
+              if (streamBody) {
+                streamBody.classList.remove('streaming-cursor');
+              }
+              const streamMsg = document.getElementById('streaming-msg');
+              if (streamMsg) {
+                streamMsg.className = `msg msg-assistant ${data.mode}`;
+                streamMsg.removeAttribute('id');
+                streamMsg.querySelector('.msg-label').className = 'msg-label';
+                // Add TTS button and auto-play
+                const hdr = streamMsg.querySelector('.msg-header');
+                if (hdr && rawText) {
+                  const ttsBtn = makeTTSButton(rawText);
+                  hdr.appendChild(ttsBtn);
+                  playTTS(rawText, ttsBtn);
+                }
+              }
+              if (streamBody) {
+                streamBody.innerHTML = marked.parse(rawText);
+              }
+            }
+
+            else if (currentEvent === 'error') {
+              if (!streamBody) streamBody = createStreamingMessage();
+              streamBody.innerHTML = `<span style="color:var(--red)">Error: ${data.error}</span>`;
+              streamBody.classList.remove('streaming-cursor');
+            }
+
+          } catch (e) {}
+          currentEvent = 'message'; // reset after processing data line
+        }
+      }
+    }
+  } catch (err) {
+    if (!streamBody) streamBody = createStreamingMessage();
+    streamBody.innerHTML = `<span style="color:var(--red)">Connection error: ${err.message}</span>`;
+    streamBody.classList.remove('streaming-cursor');
+  }
+
+  // Fallback: if stream ended without 'done' event, still add TTS button
+  const streamMsg = document.getElementById('streaming-msg');
+  if (streamMsg && rawText) {
+    streamMsg.removeAttribute('id');
+    if (streamBody) streamBody.classList.remove('streaming-cursor');
+    const hdr = streamMsg.querySelector('.msg-header');
+    if (hdr && !hdr.querySelector('.tts-btn')) {
+      const ttsBtn = makeTTSButton(rawText);
+      hdr.appendChild(ttsBtn);
+      playTTS(rawText, ttsBtn);
+    }
+  }
+
+  // Clean up tool status indicators
+  clearToolStatus();
+
+  isStreaming = false;
+  sendBtn.disabled = false;
+  chatInput.focus();
+  refreshMemory();
+}
+
+async function refreshMemory() {
+  try {
+    const [statusResp, memResp] = await Promise.all([
+      fetch('/api/status'),
+      fetch('/api/memory'),
+    ]);
+    const status = await statusResp.json();
+    const mem = await memResp.json();
+
+    document.getElementById('chip-phase').textContent = `Phase ${status.phase}: ${status.phase_name}`;
+    document.getElementById('chip-sessions').textContent = `${status.session_count} sessions`;
+    document.getElementById('chip-model').textContent = status.model;
+
+    const metaDiv = document.getElementById('mem-metadata');
+    if (mem.metadata) {
+      const d = mem.metadata;
+      metaDiv.innerHTML = `
+        <div class="mem-item"><span class="key">Master:</span> <span class="val">${d.master_name || '(unknown)'}</span></div>
+        <div class="mem-item"><span class="key">Phase:</span> <span class="val">${d.relationship_phase}</span></div>
+        <div class="mem-item"><span class="key">Sessions:</span> <span class="val">${d.session_count}</span></div>
+        <div class="mem-item"><span class="key">Last:</span> <span class="val">${d.last_session ? new Date(d.last_session).toLocaleString() : '-'}</span></div>
+      `;
+    }
+
+    const semDiv = document.getElementById('mem-semantic');
+    if (mem.semantic && mem.semantic.length > 0) {
+      semDiv.innerHTML = mem.semantic.filter(s => s).map(s => `<div class="mem-semantic-item">${s}</div>`).join('');
+    } else {
+      semDiv.innerHTML = '<div class="mem-item" style="color:var(--text-dim)">No memories yet</div>';
+    }
+  } catch (e) {
+    console.error('Memory refresh error:', e);
+  }
+}
+
+async function saveMemory() {
+  await fetch('/api/memory/save', { method: 'POST' });
+  refreshMemory();
+}
+
+async function resetMemory() {
+  if (!confirm('Reset all memory? This cannot be undone.')) return;
+  await fetch('/api/memory/reset', { method: 'POST' });
+  // Reset chat
+  chatMessages.innerHTML = '';
+  hasMessages = false;
+  chatMessages.innerHTML = `
+    <div class="char-greeting" id="char-greeting">
+      <img class="char-face" id="char-face" src="/static/expressions/smile.png" alt="Scarlett">
+      <div class="char-name">Scarlett</div>
+      <div class="char-expr" id="expr-label">smile</div>
+    </div>`;
+  setMode('angel');
+  refreshMemory();
+}
+
+chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+sendBtn.addEventListener('click', sendMessage);
+document.getElementById('btn-save').addEventListener('click', saveMemory);
+document.getElementById('btn-reset').addEventListener('click', resetMemory);
+
+refreshMemory();
+chatInput.focus();
+</script>
+
+</body>
+</html>

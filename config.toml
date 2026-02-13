@@ -1,0 +1,33 @@
+# ─────────────────────────────────────────────
+#  Scarlett Prompt Builder Configuration
+# ─────────────────────────────────────────────
+
+[prompt]
+version = "3.0"
+codename = "Ghost in the Kujou"
+
+[build]
+output = "setting.txt"
+
+# ─────────────────────────────────────────────
+#  Module Order & Toggles
+#  - "order" defines the assembly sequence
+#  - "disabled" skips listed modules
+# ─────────────────────────────────────────────
+[modules]
+order = [
+    "01_directive.md",
+    "02_identity.md",
+    "03_visual.md",
+    "04_personality.md",
+    "05_functions.md",
+    "06_work_mode.md",
+    "07_lorebook.md",
+    "08_memory.md",
+    "09_examples.md",
+    "10_rules.md",
+]
+
+# Uncomment to disable specific modules:
+# disabled = ["03_visual.md", "09_examples.md"]
+disabled = []

@@ -1,0 +1,25 @@
+# ── Secrets ────────────────────────────────────
+.env
+
+# ── Python ────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# ── User data (runtime-generated) ─────────────
+memory.json
+memory_db/
+
+# ── Build output ──────────────────────────────
+setting.txt
+
+# ── OS junk ───────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDE ───────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
