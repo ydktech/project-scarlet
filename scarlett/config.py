@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 # ── Paths ──────────────────────────────────────────────
@@ -11,6 +12,11 @@ PROMPT_PATH = ROOT / "setting.txt"
 MEMORY_PATH = ROOT / "memory.json"
 MEM0_DB_PATH = ROOT / "memory_db"
 STATIC_DIR = ROOT / "static"
+GOOGLE_OAUTH_CLIENT_SECRET_PATH = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET_PATH", "")
+GOOGLE_CAL_TOKEN_PATH = Path(
+    os.environ.get("GOOGLE_CAL_TOKEN_PATH", str(ROOT / "google_token.json")),
+)
+GOOGLE_CAL_SCOPES = ("https://www.googleapis.com/auth/calendar.events",)
 
 # ── Model ──────────────────────────────────────────────
 MODEL = "qwen-3-235b-a22b-instruct-2507"

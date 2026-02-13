@@ -59,18 +59,22 @@ def _init_session() -> None:
     """Initialize the global single-user session."""
     load_dotenv(ENV_PATH)
     cerebras_api_key = os.environ.get("CEREBRAS_API_KEY", "")
+    disable_mem0 = os.environ.get("DISABLE_MEM0", "").strip().lower() in {"1", "true", "yes", "on"}
 
     client = create_client()
     memory = HyperMemory()
     memory.bump_session()
 
     mem0_memory = None
-    try:
-        log.info("Initializing mem0...")
-        mem0_memory = init_mem0(cerebras_api_key)
-        log.info("mem0 ready")
-    except Exception as e:
-        log.warning("mem0 init failed: %s", e)
+    if disable_mem0:
+        log.info("mem0 disabled by DISABLE_MEM0")
+    else:
+        try:
+            log.info("Initializing mem0...")
+            mem0_memory = init_mem0(cerebras_api_key)
+            log.info("mem0 ready")
+        except Exception as e:
+            log.warning("mem0 init failed: %s", e)
 
     system_prompt = load_system_prompt(memory)
     messages: list[dict] = [{"role": "system", "content": system_prompt}]
@@ -84,6 +88,19 @@ def _init_session() -> None:
         "current_mode": "angel",
         "current_expression": "neutral",
     })
+
+
+def _friendly_stream_error(exc: Exception) -> str:
+    text = str(exc)
+    lower = text.lower()
+    if "queue_exceeded" in lower or "too_many_requests_error" in lower:
+        return (
+            "Cerebras 쪽 혼잡으로 잠시 대기 중입니다. 잠시 후 다시 시도해 주세요. "
+            "(provider queue_exceeded)"
+        )
+    if "503" in lower:
+        return "LLM 공급자 상태가 일시적으로 불안정합니다. 잠시 후 다시 시도해 주세요."
+    return text
 
 
 @asynccontextmanager
@@ -173,6 +190,21 @@ async def chat(request: Request):
                                 "summary": item.summary,
                             }),
                         }
+                    elif item.kind == "llm_retry":
+                        yield {
+                            "event": "llm_retry",
+                            "data": json.dumps({
+                                "attempt": (item.args or {}).get("attempt"),
+                                "max_retries": (item.args or {}).get("max_retries"),
+                                "wait_seconds": (item.args or {}).get("wait_seconds"),
+                                "error": (item.args or {}).get("error"),
+                            }),
+                        }
+                    elif item.kind == "confirm_action":
+                        yield {
+                            "event": "confirm_action",
+                            "data": json.dumps(item.args or {}),
+                        }
                     elif item.kind == "tools_summary":
                         tools_used = json.loads(item.summary or "[]")
                 else:
@@ -210,7 +242,7 @@ async def chat(request: Request):
             log.error("Stream error: %s", e)
             if not full_response:
                 messages.pop()  # remove failed user message
-            yield {"event": "error", "data": json.dumps({"error": str(e)})}
+            yield {"event": "error", "data": json.dumps({"error": _friendly_stream_error(e)})}
 
     return EventSourceResponse(event_generator())
 
@@ -304,6 +336,24 @@ async def recall(q: str = Query(..., min_length=1)):
         lines = [l.lstrip("- ") for l in recalled.split("\n") if l.startswith("- ")]
         return {"results": lines}
     return {"results": []}
+
+
+# ── Pending Action Confirmation ────────────────────────
+
+@app.post("/api/confirm-action/{action_id}")
+async def confirm_action(action_id: str):
+    """Confirm and execute a pending action (e.g. calendar delete)."""
+    from scarlett.tools import execute_pending_action
+    result = await execute_pending_action(action_id)
+    status_code = 200 if result.get("status") == "completed" else 400
+    return JSONResponse(result, status_code=status_code)
+
+
+@app.post("/api/cancel-action/{action_id}")
+async def cancel_action_endpoint(action_id: str):
+    """Cancel a pending action."""
+    from scarlett.tools import cancel_pending_action
+    return cancel_pending_action(action_id)
 
 
 # ── TTS ────────────────────────────────────────────────

@@ -24,7 +24,7 @@ def stream_chat(
     client: Cerebras,
     messages: list[dict],
     *,
-    max_retries: int = 3,
+    max_retries: int = 5,
 ) -> Generator[str, None, str]:
     """
     Sync generator that yields text chunks from the LLM.
@@ -54,13 +54,26 @@ def stream_chat(
             return full_response
 
         except Exception as e:
+            err = str(e).lower()
             is_retryable = any(
-                k in str(e) for k in ("StreamReset", "stream", "502", "503", "429")
+                k in err
+                for k in (
+                    "streamreset",
+                    "stream",
+                    "502",
+                    "503",
+                    "429",
+                    "queue_exceeded",
+                    "too_many_requests_error",
+                    "too many requests",
+                    "rate limit",
+                    "temporarily unavailable",
+                )
             )
             if is_retryable and attempt < max_retries - 1:
-                wait = (attempt + 1) * 1.5
+                wait = min(12.0, 1.5 * (2 ** attempt))
                 log.warning(
-                    "Connection error, retrying in %.0fs... (%d/%d)",
+                    "Connection error, retrying in %.1fs... (%d/%d)",
                     wait, attempt + 1, max_retries,
                 )
                 time.sleep(wait)

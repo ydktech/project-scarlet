@@ -1,5 +1,8 @@
 # ── Secrets ────────────────────────────────────
 .env
+client_secret_*.json
+google_token.json
+token.json
 
 # ── Python ────────────────────────────────────
 __pycache__/
